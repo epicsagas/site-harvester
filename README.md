@@ -13,7 +13,7 @@
 
 Many membership sites are SPAs (React and the like) backed by a JSON API. This plugin turns that into a local data pipeline: find the hidden API, harvest your own OAuth token once via a real browser login, then fetch everything through plain API calls — paced like a human reader, resumable after any crash, and scheduled to pick up new content while you sleep.
 
-Built and battle-tested on large login-walled SPA sites — full-archive initial sweeps paced over days, OAuth login, scheduled incremental updates.
+Runs on Claude Code, Codex, Antigravity, and Hermes Agent. Built and battle-tested on large login-walled SPA sites — full-archive initial sweeps paced over days, OAuth login, scheduled incremental updates.
 
 ## Install
 
