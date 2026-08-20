@@ -1,0 +1,18 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "epicsagas",
+  "owner": {
+    "name": "epicsagas",
+    "url": "https://github.com/epicsagas"
+  },
+  "metadata": {
+    "description": "Handcrafted plugins for serious AI-assisted work."
+  },
+  "plugins": [
+    {
+      "name": "site-harvester",
+      "source": "./",
+      "description": "Authenticated website content harvester: recon an SPA's hidden API, harvest OAuth tokens via Playwright, then collect all content human-paced, resumable, cron-scheduled"
+    }
+  ]
+}

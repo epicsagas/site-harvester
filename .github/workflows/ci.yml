@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Template syntax
+        run: |
+          python3 - <<'EOF'
+          import ast, sys
+          files = [
+              "skills/site-harvester/assets/templates/collect.py",
+              "skills/site-harvester/assets/templates/login.py",
+          ]
+          for f in files:
+              ast.parse(open(f, encoding="utf-8").read())
+              print("ok", f)
+          EOF
+      - name: SKILL frontmatter + README language switcher
+        run: |
+          head -1 skills/site-harvester/SKILL.md | grep -q '^---'
+          grep -q 'name: site-harvester' skills/site-harvester/SKILL.md
+          grep -q 'README.ko.md' README.md
+          grep -q 'README.md' README.ko.md
+      - name: Guardrails intact
+        run: |
+          if grep -rniE 'proxy|rotate|captcha|stealth' skills/site-harvester/assets/templates/; then
+            echo "::error::evasion pattern found in templates"; exit 1
+          fi
+          grep -q 'tos_ok' skills/site-harvester/assets/templates/collect.py
+          grep -q 'isPrivate' skills/site-harvester/assets/templates/collect.py
+      - name: Manifests parse
+        run: |
+          python3 -c "import json; [json.load(open(f)) for f in ['.claude-plugin/plugin.json','plugin.json','.codex-plugin/plugin.json']]"
