@@ -3,6 +3,21 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org).
 
+## [0.2.0] — 2026-08-21
+
+### Added
+
+- Phase 1 terms-of-service check + `tos_ok` gate before any collection
+- HTTP 403/429 hard stop, public-repo commit refusal, CI guardrail lint
+
+### Fixed
+
+- Markdown converter v2: block elements nested in `<p>`/`<div>` (figure, table,
+  lists) no longer flatten into one line; literal `*` footnote markers escaped;
+  sentence-glue spacing (`증가한다.반면` → `증가한다. 반면`); interview Q&A
+  runs split into blocks. Validated on ~1,800 real notes (long-line defects
+  181 → 9, glue 30 → 0).
+
 ## [0.1.0] — 2026-08-20
 
 Initial release.
