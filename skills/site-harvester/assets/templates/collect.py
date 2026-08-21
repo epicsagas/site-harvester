@@ -27,17 +27,28 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 # site-specific section; everything below the marker is generic harness.
 # ===========================================================================
 SITE = {
+    "mode": "api",   # "api" = JSON API | "dom" = rendered pages | "rss" = feed index
     "origin": "https://example.com",
-    "api_base": "https://example.com/api",
-    # list endpoint, paginated by ?page=N (1-based); must stop at empty page
-    "index_path": "/items?page={page}",
-    # detail endpoint per item
-    "detail_path": "/items/{id}",
-    # auth header built from token; None if the site uses cookies instead
-    "auth_header": "Bearer {token}",
     "window_days": 14,
     "collection_name": "site",   # used in commits/notes
     "tos_ok": False,             # flip to True only after the Phase 1 terms check
+
+    # ---- api mode ----
+    "api_base": "https://example.com/api",
+    # list endpoint (api) / list page URL (dom), paginated by ?page=N (1-based);
+    # must stop at empty page
+    "index_path": "/items?page={page}",
+    # detail endpoint per item (api only)
+    "detail_path": "/items/{id}",
+    # auth header built from token; None if the site uses cookies instead
+    "auth_header": "Bearer {token}",
+
+    # ---- dom mode ----
+    "dom_list_selector": ".item-card",           # one entry card on a list page
+    "dom_content_selector": "article .content",  # main content on a detail page
+
+    # ---- rss mode ----
+    "feed_url": "https://example.com/feed.xml",
 }
 
 def iter_index_items(page_json) -> list:
@@ -45,7 +56,7 @@ def iter_index_items(page_json) -> list:
     return page_json.get("items", [])
 
 def item_id(entry) -> int | str:
-    """Unique id of one index entry."""
+    """Unique id of one index entry (api: JSON item; rss: feed entry)."""
     return entry["id"]
 
 def item_summary(entry) -> dict:
@@ -74,6 +85,44 @@ def normalize_image_url(src: str) -> str | None:
     if src.startswith("/"):
         return SITE["origin"] + src
     return src or None
+
+# ---- dom mode hooks (fill only when mode="dom") ----------------------------
+
+def dom_list_items(soup) -> list:
+    """Entry cards from one rendered list page."""
+    return soup.select(SITE["dom_list_selector"])
+
+def dom_index_item(el) -> dict:
+    """{"id", "url"} from one entry card; doubles as the index.json summary."""
+    a = el.select_one("a") or el
+    href = a.get("href", "")
+    return {"id": href.rstrip("/").split("/")[-1], "url": SITE["origin"] + href}
+
+def dom_detail_extract(soup, item: dict) -> dict:
+    """Stored record from one rendered detail page. html empty = auth failed."""
+    node = soup.select_one(SITE["dom_content_selector"])
+    return {"url": item["url"],
+            "meta": {"id": item["id"],
+                     "title": (soup.h1.get_text(strip=True) if soup.h1 else ""),
+                     "published": "", "url": item["url"]},
+            "html": str(node) if node else ""}
+
+# ---- rss mode hooks (fill only when mode="rss"; defaults fit most feeds) ---
+
+def rss_entry_meta(entry) -> dict:
+    """Display metadata from one feed entry (id slugified: feed ids are URLs)."""
+    slug = re.sub(r"[^0-9a-zA-Z._-]+", "-", str(item_id(entry))).strip("-")
+    tm = entry.get("published_parsed")
+    return {"id": slug or str(item_id(entry)), "title": entry.get("title", ""),
+            "published": time.strftime("%Y-%m-%d", tm) if tm else "",
+            "url": entry.get("link", "")}
+
+def rss_content_html(entry) -> str:
+    """Body HTML from one feed entry (content:encoded / Atom content, else summary)."""
+    for c in entry.get("content", []):
+        if c.get("value"):
+            return c["value"]
+    return entry.get("summary") or entry.get("description") or ""
 # ============================== end SITE adapter ===========================
 
 SCRAPER_DIR = Path(__file__).resolve().parent
@@ -85,7 +134,11 @@ ATTACH_DIR = PROJECT_DIR / "attachments"
 STATE_FILE = SCRAPER_DIR / "state.json"
 INDEX_FILE = DATA_DIR / "index.json"
 TOKEN_FILE = SCRAPER_DIR / "token.json"
+PROFILE_DIR = SCRAPER_DIR / "profile"  # login.py's persistent browser profile
 LOCK_FILE = SCRAPER_DIR / ".lock"
+
+RENDERER = None     # DomRenderer instance, only when mode="dom"
+PENDING: dict = {}  # id -> dom item dict | rss feed entry (set by dom/rss sweeps)
 
 log = logging.getLogger("harvester")
 
@@ -103,12 +156,14 @@ def sanitize_filename(s: str, cap: int = 80) -> str:
     return re.sub(r"\s+", " ", s).strip().strip(".")[:cap].rstrip()
 
 
+USER_AGENT = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
+              "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
+
+
 class Client:
     def __init__(self, token: str | None):
         self.s = requests.Session()
-        self.s.headers["User-Agent"] = (
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
-            "(KHTML, like Gecko) Chrome/126.0 Safari/537.36")
+        self.s.headers["User-Agent"] = USER_AGENT
         self.token = token
 
     def get(self, path: str):
@@ -118,6 +173,37 @@ class Client:
         r = self.s.get(SITE["api_base"] + path, headers=headers, timeout=30)
         r.raise_for_status()
         return r.json()
+
+
+class DomRenderer:
+    """One headless Chromium for the whole run, sharing login.py's profile
+    (session cookies carry auth; no token needed)."""
+
+    def start(self):
+        from playwright.sync_api import sync_playwright  # lazy: only mode="dom"
+        self._pw = sync_playwright().start()
+        self._ctx = self._pw.chromium.launch_persistent_context(
+            str(PROFILE_DIR), headless=True, viewport={"width": 1280, "height": 900})
+        self._page = self._ctx.pages[0] if self._ctx.pages else self._ctx.new_page()
+
+    def html(self, url: str) -> str:
+        self._page.goto(url, timeout=60000, wait_until="networkidle")
+        return self._page.content()
+
+    def cookie_session(self) -> requests.Session:
+        """Export profile cookies so image downloads pass the same auth."""
+        s = requests.Session()
+        s.headers["User-Agent"] = USER_AGENT
+        for c in self._ctx.cookies():
+            s.cookies.set(c["name"], c["value"],
+                          domain=c.get("domain", "").lstrip("."), path=c.get("path", "/"))
+        return s
+
+    def close(self):
+        if getattr(self, "_ctx", None):
+            self._ctx.close()
+        if getattr(self, "_pw", None):
+            self._pw.stop()
 
 
 def refresh_token() -> bool:
@@ -138,6 +224,11 @@ def load_client(require_token: bool = True) -> Client:
 
 
 def sweep_index(client: Client) -> list[dict]:
+    mode = SITE.get("mode", "api")
+    if mode == "dom":
+        return sweep_index_dom()
+    if mode == "rss":
+        return sweep_index_rss()
     entries, page = [], 1
     while True:
         d = client.get(SITE["index_path"].format(page=page))
@@ -152,6 +243,66 @@ def sweep_index(client: Client) -> list[dict]:
     DATA_DIR.mkdir(exist_ok=True)
     save_json(INDEX_FILE, {"items": entries, "swept_at": datetime.now().isoformat()})
     return entries
+
+
+def sweep_index_dom() -> list[dict]:
+    entries, page = [], 1
+    while True:
+        soup = BeautifulSoup(
+            RENDERER.html(SITE["origin"] + SITE["index_path"].format(page=page)),
+            "html.parser")
+        els = dom_list_items(soup)
+        if not els:
+            break
+        for el in els:
+            item = dom_index_item(el)
+            PENDING[item["id"]] = item
+            entries.append(item)
+        log.info("index page %d: %d items (total %d)", page, len(els), len(entries))
+        page += 1
+        time.sleep(random.uniform(1.0, 2.0))
+    DATA_DIR.mkdir(exist_ok=True)
+    save_json(INDEX_FILE, {"items": entries, "swept_at": datetime.now().isoformat()})
+    return entries
+
+
+def sweep_index_rss() -> list[dict]:
+    try:
+        import feedparser  # lazy: only mode="rss"
+    except ImportError:
+        log.error('mode="rss" needs feedparser — pip install feedparser')
+        sys.exit(1)
+    feed = feedparser.parse(SITE["feed_url"])
+    if feed.bozo and not feed.entries:
+        log.error("feed unreadable (%s) — check feed_url", feed.bozo_exception)
+        sys.exit(1)
+    entries = []
+    for e in feed.entries:
+        m = rss_entry_meta(e)
+        PENDING[m["id"]] = e
+        entries.append(m)  # rss_entry_meta output doubles as the index.json summary
+    DATA_DIR.mkdir(exist_ok=True)
+    save_json(INDEX_FILE, {"items": entries, "swept_at": datetime.now().isoformat()})
+    log.info("feed: %d entries", len(entries))
+    return entries
+
+
+def fetch_detail(aid, client: Client) -> dict:
+    """One item's stored record, fetched per mode."""
+    mode = SITE.get("mode", "api")
+    if mode == "rss":
+        e = PENDING[aid]
+        return {"meta": rss_entry_meta(e), "html": rss_content_html(e)}
+    if mode == "dom":
+        rec = dom_detail_extract(
+            BeautifulSoup(RENDERER.html(PENDING[aid]["url"]), "html.parser"),
+            PENDING[aid])
+        if not rec["html"].strip():
+            log.error("item %s: empty content — profile session likely dead; "
+                      "rerun login.py", aid)
+            sys.exit(1)
+        return rec
+    return client.get(SITE["detail_path"].format(id=aid))
 
 
 # ---------------------------------------------------------------- images
@@ -331,10 +482,13 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
 # ---------------------------------------------------------------- notes
 
 
-def build_note(detail: dict) -> None:
-    meta = detail_meta(detail)
-    aid = meta["id"]
-    html = detail_content_html(detail)
+def build_note(detail: dict, session: requests.Session | None = None) -> None:
+    if SITE.get("mode", "api") == "api":
+        meta, html = detail_meta(detail), detail_content_html(detail)
+    else:  # dom/rss store an already-normalized record
+        meta, html = detail["meta"], detail["html"]
+    # rss ids are often full URLs — one sanitized on-disk name everywhere
+    aid = sanitize_filename(str(meta["id"]))
 
     urls, seen = [], set()
     for m in re.finditer(r'<img[^>]+(?:data-)?src="([^"]+)"', html):
@@ -342,7 +496,7 @@ def build_note(detail: dict) -> None:
         if u and u not in seen:
             seen.add(u)
             urls.append(u)
-    img_map = download_images(urls, ATTACH_DIR / str(aid), requests.Session())
+    img_map = download_images(urls, ATTACH_DIR / aid, session or requests.Session())
 
     body = html_to_md(html, img_map)
     fm = ["---", f"id: {aid}", f"title: {json.dumps(meta.get('title') or '', ensure_ascii=False)}",
@@ -388,6 +542,7 @@ def git_commit(count: int) -> None:
 
 
 def main() -> int:
+    global RENDERER
     ap = argparse.ArgumentParser()
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--pace", type=float, nargs=2, default=(30, 120), metavar=("MIN", "MAX"))
@@ -425,46 +580,68 @@ def main() -> int:
         log.info("collection window over — nothing to do")
         return 0
 
-    client = load_client(require_token=bool(SITE["auth_header"]))
+    mode = SITE.get("mode", "api")
+    client = load_client(require_token=(mode == "api" and bool(SITE["auth_header"])))
+    img_session = None
+    if mode == "dom":
+        try:
+            RENDERER = DomRenderer()
+            RENDERER.start()
+        except ImportError:
+            log.error('mode="dom" needs playwright — pip install playwright && '
+                      "playwright install chromium")
+            return 1
+        img_session = RENDERER.cookie_session()
 
-    entries = sweep_index(client)
-    collected = state["collected"]
-    pending = sorted((e["id"] for e in entries if str(e["id"]) not in collected),
-                     key=str)  # oldest/lowest id first
-    if args.limit:
-        pending = pending[: args.limit]
-    log.info("pending: %d", len(pending))
+    try:
+        entries = sweep_index(client)
+        collected = state["collected"]
+        pending = sorted((e["id"] for e in entries if str(e["id"]) not in collected),
+                         key=str)  # oldest/lowest id first
+        if args.limit:
+            pending = pending[: args.limit]
+        log.info("pending: %d", len(pending))
 
-    done = 0
-    for i, aid in enumerate(pending):
-        for attempt in range(2):
-            try:
-                detail = client.get(SITE["detail_path"].format(id=aid))
-                RAW_DIR.mkdir(parents=True, exist_ok=True)
-                (RAW_DIR / f"{aid}.json").write_text(json.dumps(detail, ensure_ascii=False), encoding="utf-8")
-                build_note(detail)
-                collected[str(aid)] = datetime.now().isoformat(timespec="seconds")
-                save_json(STATE_FILE, state)
-                done += 1
-                break
-            except requests.RequestException as e:
-                status = getattr(getattr(e, "response", None), "status_code", None)
-                if status == 401 and attempt == 0 and refresh_token():
-                    client = load_client(require_token=bool(SITE["auth_header"]))
-                    continue
-                if status in (403, 429):
-                    log.error("blocked or rate-limited (HTTP %s) — stopping; see SKILL.md failure modes", status)
-                    return 1
-                log.error("item %s failed: %s", aid, e)
-                time.sleep(10)
-        if i < len(pending) - 1:
-            smoke = bool(args.limit) and args.limit <= 10
-            time.sleep(random.uniform(3, 8) if smoke else random.uniform(*args.pace))
-        if done and done % 50 == 0 and args.commit:
+        done = 0
+        for i, aid in enumerate(pending):
+            for attempt in range(2):
+                try:
+                    detail = fetch_detail(aid, client)
+                    RAW_DIR.mkdir(parents=True, exist_ok=True)
+                    # rss ids are often full URLs — sanitize for the filename
+                    (RAW_DIR / f"{sanitize_filename(str(aid))}.json").write_text(
+                        json.dumps(detail, ensure_ascii=False), encoding="utf-8")
+                    build_note(detail, img_session)
+                    collected[str(aid)] = datetime.now().isoformat(timespec="seconds")
+                    save_json(STATE_FILE, state)
+                    done += 1
+                    break
+                except requests.RequestException as e:
+                    status = getattr(getattr(e, "response", None), "status_code", None)
+                    if status == 401 and attempt == 0 and mode == "api" and refresh_token():
+                        client = load_client(require_token=bool(SITE["auth_header"]))
+                        continue
+                    if status in (403, 429):
+                        log.error("blocked or rate-limited (HTTP %s) — stopping; see SKILL.md failure modes", status)
+                        return 1
+                    log.error("item %s failed: %s", aid, e)
+                    time.sleep(10)
+                except Exception as e:  # dom: render/extract failure on one item
+                    if mode != "dom":
+                        raise
+                    log.error("item %s failed: %s", aid, e)
+                    time.sleep(10)
+            if i < len(pending) - 1 and mode != "rss":
+                smoke = bool(args.limit) and args.limit <= 10
+                time.sleep(random.uniform(3, 8) if smoke else random.uniform(*args.pace))
+            if done and done % 50 == 0 and args.commit:
+                git_commit(done)
+
+        if done and args.commit:
             git_commit(done)
-
-    if done and args.commit:
-        git_commit(done)
+    finally:
+        if RENDERER:
+            RENDERER.close()
     log.info("run complete: %d new items", done)
     return 0
 

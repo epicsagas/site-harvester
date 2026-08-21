@@ -11,7 +11,7 @@
 
 > Collect every article behind a login wall — politely, resumably, on schedule.
 
-Many membership sites are SPAs (React and the like) backed by a JSON API. This plugin turns that into a local data pipeline: find the hidden API, harvest your own OAuth token once via a real browser login, then fetch everything through plain API calls — paced like a human reader, resumable after any crash, and scheduled to pick up new content while you sleep.
+Many membership sites are SPAs (React and the like) backed by a JSON API. This plugin turns that into a local data pipeline: find the hidden API, harvest your own OAuth token once via a real browser login, then fetch everything through plain API calls — paced like a human reader, resumable after any crash, and scheduled to pick up new content while you sleep. Sites without an API work too: collect from an RSS feed (`rss` mode) or rendered pages via the login browser profile (`dom` mode).
 
 Runs on Claude Code, Codex, Antigravity, and Hermes Agent. Built and battle-tested on large login-walled SPA sites — full-archive initial sweeps paced over days, OAuth login, scheduled incremental updates.
 
@@ -57,14 +57,14 @@ automatic.
 
 | | Stage | What happens |
 |--|-------|--------------|
-| 🔍 | Recon | Grep the site's JS bundle for its hidden API — endpoints, pagination, token storage |
+| 🔍 | Recon | Check for an RSS feed, grep the site's JS bundle for its hidden API — endpoints, pagination, token storage — pick the mode |
 | 🔑 | Token harvest | Headed browser login (you, once); the SPA's own token lands in a local profile |
-| 📦 | Collect | API sweep at human pace — random 30–120s between items, images downloaded |
+| 📦 | Collect | Sweep at human pace — API calls, feed entries, or rendered pages; images downloaded |
 | 🔁 | Resume | Per-item state file — crash, Ctrl-C, reboot: it picks up exactly where it stopped |
 | ⏰ | Schedule | Cron picks up newly published items; a window guard self-disables the run |
 | 🗄️ | Data layer | Raw API JSON is committed as the source of truth; notes/sites derive from it |
 
-Site-specific code is confined to one `SITE` adapter block at the top of each template — six small parsing hooks found during recon. Everything else (flock, 401 auto-refresh, HTML→Markdown, image handling, commits) is generic.
+Site-specific code is confined to one `SITE` adapter block at the top of each template. Pick a mode — `api` (JSON endpoints), `rss` (feed as index), or `dom` (rendered pages via the login profile) — and fill that mode's small hook group from recon. Everything else (flock, 401 auto-refresh, HTML→Markdown, image handling, commits) is generic.
 
 ## Why site-harvester?
 
@@ -77,7 +77,7 @@ Site-specific code is confined to one `SITE` adapter block at the top of each te
 | Structured JSON output | ✅ raw API responses | 🔧 parse DOM | ⚠️ | ❌ |
 | Full-page snapshots | ❌ | ⚠️ | ✅ | ✅ |
 
-If you need page screenshots or WARCs, use ArchiveBox. If the site has no API at all, write Playwright. For everything else, this is less code you own.
+If you need page screenshots or WARCs, use ArchiveBox. Sites with a full-content RSS feed collect with zero login (`rss` mode); sites with no API at all use `dom` mode on the login browser profile. For everything else, this is less code you own.
 
 ## FAQ
 

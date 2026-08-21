@@ -17,9 +17,9 @@ pipeline. Battle-tested on React SPA membership sites at full-archive scale
 
 ## Principles
 
-1. **API over browser.** SPAs get data from a JSON API. Find it, call it
-   directly. Browsers are only for the one thing they're needed for: the OAuth
-   login that mints your token.
+1. **Cheapest source first.** JSON API → RSS feed → rendered DOM. Find the
+   API and call it directly; fall back to the feed, then to dom mode. Browsers
+   are only for what they're needed for: the OAuth login, and dom-mode pages.
 2. **Human pacing.** Random 30–120s between item fetches, 1–2s between images.
    Spread big initial sweeps over days. Never hammer.
 3. **Resumable by construction.** State file updated after every item; crash or
@@ -73,6 +73,22 @@ Verify endpoints with curl before writing any code:
 If the bundle is unreadable, open the site in a browser instead and read the
 Network tab: XHR requests to `api.*` or `/api/*` with JSON responses.
 
+Step 0 — check for an RSS/Atom feed before anything else:
+
+```bash
+curl -s 'https://SITE/' | grep -oE '<link[^>]+rel=.alternate.[^>]*>'
+```
+
+Pick the collection mode from what recon found:
+
+| Recon finding | `SITE["mode"]` |
+|---|---|
+| JSON API found, token/Bearer auth | `api` |
+| Feed with full `content:encoded` bodies | `rss` (no login needed) |
+| Feed is summary-only or truncated to newest N | `api` or `dom` instead |
+| No API, content rendered by JS / SSR pages | `dom` |
+| Cookie-session site (no token in storage) | `dom` (login profile carries auth) |
+
 ### Phase 2 — Scaffold
 
 Copy `assets/templates/` from this skill into the target repo:
@@ -86,12 +102,18 @@ target-repo/
 └── data/             # committed raw JSON (source of truth)
 ```
 
-Fill the `SITE = {...}` block in each script (origin, api_base, endpoints,
-token key, header). Set `tos_ok: True` in collect.py only after the Phase 1
-terms check passes. Fill the parsing hooks in collect.py:
-`iter_index_items`, `item_id`, `detail_content_html`, `detail_meta`,
-`normalize_image_url`. Each is a lambda over the site's JSON shape — recon
-output tells you the paths.
+Fill the `SITE = {...}` block in each script. Set `SITE["mode"]` from the
+Phase 1 recon table. Set `tos_ok: True` in collect.py only after the Phase 1
+terms check passes. Fill only the hook group for your mode:
+
+| mode | SITE keys | hooks | extra dependency |
+|------|-----------|-------|------------------|
+| `api` | `api_base`, `index_path`, `detail_path`, `auth_header` | `iter_index_items`, `item_id`, `item_summary`, `detail_meta`, `detail_content_html`, `normalize_image_url` | — |
+| `dom` | `index_path` (list URL), `dom_list_selector`, `dom_content_selector` | `dom_list_items`, `dom_index_item`, `dom_detail_extract`, `normalize_image_url` | `playwright install chromium` |
+| `rss` | `feed_url` | `item_id`, `item_summary`, `rss_entry_meta`, `rss_content_html` | `pip install feedparser` |
+
+Each hook is a small function over the site's data shape — recon output tells
+you the paths/selectors. Unused hook groups stay as inert defaults.
 
 ### Phase 3 — Login + token harvest
 
@@ -104,10 +126,16 @@ cookies. `login.py --refresh` loads the site headlessly in the same profile,
 lets the app refresh, re-harvests. collect.py calls it automatically on any
 401. If session cookies die too → manual `login.py` again.
 
+dom mode: run headed `login.py` once too — the profile's session cookies are
+what carry auth (no token needed). "No token found" exiting 1 is expected on
+cookie-session sites; the profile is what matters. Never run `login.py`
+while a dom-mode collect is running — Chromium locks the profile directory
+(flock only guards collect-vs-collect).
+
 ### Phase 4 — Collect
 
 ```bash
-python3 scraper/collect.py --limit 3 --no-commit   # smoke: 3 items, verify output
+python3 scraper/collect.py --limit 3              # smoke: 3 items, verify output
 python3 scraper/collect.py                         # full sweep (background, nohup)
 python3 scraper/collect.py --rebuild-notes         # regenerate derived notes from data/
 ```
@@ -142,3 +170,7 @@ date in the repo's PROGRESS; remove the cron line after.
 | List API stops early | Some sites cap pages — look for offset/cursor params in recon |
 | IP block / rate limit | Increase `--pace`, add jitter days, stop and reconsider |
 | Site redesign | Endpoints moved → rerun Phase 1, update SITE dict; raw JSON history survives |
+| dom: empty content on every item | Profile session died — rerun headed `login.py`, then collect again |
+| rss: bodies empty or one-liners | Summary-only feed — switch mode to `api` or `dom` |
+| rss: old items missing | Feed truncated to newest N — full archive needs `api`/`dom` |
+| `feedparser` ImportError | `pip install feedparser` (only needed for mode `rss`) |

@@ -3,6 +3,26 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org).
 
+## [0.3.0] — 2026-08-22
+
+### Added
+
+- `dom` collection mode: Playwright-rendered list/detail pages for SSR or
+  API-less sites, reusing login.py's persistent profile (session cookies
+  carry auth); profile cookies exported into the image-download session.
+- `rss` collection mode: feed as index (`feedparser`, lazy import), bodies
+  from inline `content:encoded`/summary; per-item pacing skipped (no
+  per-item fetch).
+- `SITE["mode"]` entry-level dispatch (`api` default; old adapters without
+  the key keep working); dom/rss store a normalized `{"url","meta","html"}`
+  record so notes/rebuild paths are unchanged.
+- SKILL.md: cheapest-source ladder, RSS discovery step, mode-selection
+  table, dom login notes, new failure-mode rows.
+
+### Fixed
+
+- SKILL.md smoke command referenced an undefined `--no-commit` flag.
+
 ## [0.2.0] — 2026-08-21
 
 ### Added
