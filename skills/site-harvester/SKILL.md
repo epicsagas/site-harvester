@@ -128,7 +128,7 @@ date in the repo's PROGRESS; remove the cron line after.
 ### Phase 6 — Derived layers (optional)
 
 - **Notes/KMS**: convert raw JSON → markdown notes with wikilinks
-  (item ↔ series ↔ author). See worked example in the vault vault project.
+  (item ↔ series ↔ author). See worked example in the vault project.
 - **Local site**: `data/` + `attachments/` is a self-contained static-site
   source. Body HTML is usually render-ready. Keep it localhost-only for paid
   content.
