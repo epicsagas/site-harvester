@@ -189,6 +189,13 @@ def download_images(urls: list[str], dest_dir: Path, session: requests.Session,
 # ---------------------------------------------------------------- html -> md
 
 
+BLOCK_TAGS = {
+    "p", "div", "figure", "figcaption", "table", "ul", "ol", "blockquote",
+    "h1", "h2", "h3", "h4", "h5", "h6", "hr", "section", "article", "aside",
+    "small", "pre",
+}
+
+
 def html_to_md(html: str, img_map: dict[str, str]) -> str:
     soup = BeautifulSoup(html or "", "html.parser")
     for t in soup.find_all(["script", "style"]):
@@ -196,7 +203,7 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
 
     def inline(node) -> str:
         if isinstance(node, NavigableString):
-            return str(node)
+            return str(node).replace("*", "\\*")
         if not isinstance(node, Tag):
             return ""
         name = node.name
@@ -214,9 +221,18 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
             return f"[{inner}]({href})" if inner and href else inner
         if name == "img":
             src = normalize_image_url(node.get("src") or node.get("data-src"))
-            local = img_map.get(src) if src else None
-            return f"![[{local}]]" if local else ""
+            if not src:
+                return ""
+            local = img_map.get(src)
+            return f"\n\n![[{local}]]\n\n" if local else ""
         return "".join(inline(c) for c in node.children)
+
+    def para_flush(buf: list, out: list) -> None:
+        txt = "".join(buf)
+        txt = re.sub(r"[ \t]+\n", "\n", txt)
+        txt = re.sub(r"\n{3,}", "\n\n", txt).strip()
+        if txt:
+            out.append(txt + "\n\n")
 
     def block(node, out: list) -> None:
         if not isinstance(node, Tag):
@@ -225,13 +241,6 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
                 out.append(txt)
             return
         name = node.name
-        if name in ("p", "div", "span", "em", "i", "strong", "b", "a", "code"):
-            txt = "".join(inline(c) for c in node.children)
-            txt = re.sub(r"[ \t]+\n", "\n", txt)
-            txt = re.sub(r"\n{3,}", "\n\n", txt).strip()
-            if txt:
-                out.append(txt + "\n\n")
-            return
         if name == "figure":
             for c in node.children:
                 if isinstance(c, Tag) and c.name == "figcaption":
@@ -243,16 +252,21 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
                 if captxt:
                     out.append(f"*{captxt}*\n\n")
             return
-        if name == "img":
-            md = inline(node)
-            if md:
-                out.append(md + "\n\n")
+        if name == "figcaption":
+            captxt = "".join(inline(c) for c in node.children).strip()
+            if captxt:
+                out.append(f"*{captxt}*\n\n")
             return
-        if name in ("h1", "h2", "h3", "h4", "h5"):
-            level = min(int(name[1]) + 1, 6)
+        if name == "small":
             txt = "".join(inline(c) for c in node.children).strip()
             if txt:
-                out.append(f"{'#' * level} {txt}\n\n")
+                out.append(f"*{txt}*\n\n")
+            return
+        if name in ("h1", "h2", "h3", "h4", "h5", "h6"):
+            level = int(name[1]) + 1  # article title is h1 already
+            txt = "".join(inline(c) for c in node.children).strip()
+            if txt:
+                out.append(f"{'#' * min(level, 6)} {txt}\n\n")
             return
         if name == "blockquote":
             inner = []
@@ -265,29 +279,53 @@ def html_to_md(html: str, img_map: dict[str, str]) -> str:
         if name in ("ul", "ol"):
             for i, li in enumerate(node.find_all("li", recursive=False), 1):
                 txt = "".join(inline(c) for c in li.children).strip()
+                bullet = "-" if name == "ul" else f"{i}."
                 if txt:
-                    out.append(f"{'-' if name == 'ul' else f'{i}.'} {txt}\n")
+                    out.append(f"{bullet} {txt}\n")
             out.append("\n")
             return
         if name == "hr":
             out.append("---\n\n")
             return
+        if name == "br":
+            out.append("\n\n")
+            return
         if name == "table":
-            for ri, tr in enumerate(node.find_all("tr")):
-                cells = ["".join(inline(c) for c in (td or NavigableString("")).children).strip()
-                         for td in tr.find_all(["td", "th"])]
+            rows = node.find_all("tr")
+            for ri, tr in enumerate(rows):
+                cells = [
+                    "".join(inline(c) for c in (td or NavigableString("")).children).strip()
+                    for td in tr.find_all(["td", "th"])
+                ]
                 out.append("| " + " | ".join(cells) + " |\n")
                 if ri == 0:
                     out.append("|" + "---|" * len(cells) + "\n")
             out.append("\n")
             return
+        # inline-ish containers (p, div, span, em, strong, a, code, unknown):
+        # block children nested inside (messy CMS HTML) flush the inline run
+        # and recurse as blocks instead of flattening everything to one line.
+        buf: list[str] = []
         for c in node.children:
-            block(c, out)
+            if isinstance(c, Tag) and c.name in BLOCK_TAGS:
+                para_flush(buf, out)
+                buf = []
+                block(c, out)
+            else:
+                buf.append(inline(c))
+        para_flush(buf, out)
+        return
 
     out: list[str] = []
     for c in soup.children:
         block(c, out)
-    return re.sub(r"\n{3,}", "\n\n", "".join(out)).strip()
+    md = "".join(out)
+    md = re.sub(r"\n{3,}", "\n\n", md)
+    # flattened CMS HTML glues sentences: "증가한다.반면" → "증가한다. 반면"
+    md = re.sub(r"([.!?])([가-힣])", r"\1 \2", md)
+    # interview Q&A runs glued in one paragraph: "…그렇다Q. 왜" → split
+    md = re.sub(r'([가-힣!?"\'\)])\s*(Q\.|A\.) ', r"\1\n\n\2 ", md)
+    return md.strip()
 
 
 # ---------------------------------------------------------------- notes
