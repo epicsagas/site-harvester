@@ -2,7 +2,7 @@
 
 <img width="100%" src="assets/feature.png" alt="Site Harvester Features" />
 
-<center><h1>site-harvester</h1></center>
+<p align="center"><h1>site-harvester</h1></p>
 
 <p align="center">
   <a href="https://github.com/epicsagas/site-harvester/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/epicsagas/site-harvester?style=for-the-badge&labelColor=0d1117&color=ffd700&logo=github&logoColor=white" /></a>
