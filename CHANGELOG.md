@@ -3,6 +3,30 @@
 All notable changes follow [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versions follow [SemVer](https://semver.org).
 
+## [0.4.0] — 2026-08-22
+
+### Added
+
+- Local reader site (Phase 6b): generic, dependency-free (stdlib + vanilla
+  JS) blog-like reader for every harvest. The collector emits a normalized
+  `data/site/` layer (`index.json` + per-article JSON with `body_html`);
+  the `site/` template (serve.py, index.html, app.js, style.css) contains
+  zero per-site code and reads only that schema.
+- Reader features: search + series filter + infinite scroll feed, article
+  pages with prev/next within a series, series/author/tag/keyword pages,
+  year/month archive, in-body auto-links, dark theme, read tracking
+  (localStorage). `/api/tags` builds tag→ids and keyword→ids indexes in one
+  cached scan.
+- `collect.py` local-site hooks (`norm_article`, `norm_series`,
+  `norm_authors`) — opt-in per site; unfilled hooks skip the layer with an
+  INFO log. `--rebuild-site` regenerates `data/site/` from raw `data/`
+  without refetching; the layer also refreshes at the end of every sweep.
+- `serve.py --root/--port`: localhost-only binding (127.0.0.1, enforced by
+  a CI guardrail), path-traversal-guarded `/media/`, positional body-image
+  rewrite onto each article's `assets_dir` img-* files.
+- `data/site/` added to the gitignore template (derived, regenerable);
+  CI parses serve.py as a template and asserts the localhost binding.
+
 ## [0.3.0] — 2026-08-22
 
 ### Added

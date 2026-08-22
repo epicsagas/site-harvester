@@ -62,7 +62,7 @@ automatic.
 | 📦 | Collect | Sweep at human pace — API calls, feed entries, or rendered pages; images downloaded |
 | 🔁 | Resume | Per-item state file — crash, Ctrl-C, reboot: it picks up exactly where it stopped |
 | ⏰ | Schedule | Cron picks up newly published items; a window guard self-disables the run |
-| 🗄️ | Data layer | Raw API JSON is committed as the source of truth; notes/sites derive from it |
+| 🗄️ | Data layer | Raw API JSON is committed as the source of truth; notes and the local reader derive from it |
 
 Site-specific code is confined to one `SITE` adapter block at the top of each template. Pick a mode — `api` (JSON endpoints), `rss` (feed as index), or `dom` (rendered pages via the login profile) — and fill that mode's small hook group from recon. Everything else (flock, 401 auto-refresh, HTML→Markdown, image handling, commits) is generic.
 
@@ -86,6 +86,16 @@ If you need page screenshots or WARCs, use ArchiveBox. Sites with a full-content
 
 The collector detects 401s and refreshes headlessly from the browser profile.
 If the session cookie itself died, run `python3 scraper/login.py` once more.
+</details>
+
+<details>
+<summary>Can I read the archive as a website?</summary>
+
+Yes — fill the optional `norm_*` hooks in `collect.py`, run
+`collect.py --rebuild-site`, then `python3 site/serve.py`. A dependency-free
+reader (search, series, authors, tags, archive, dark theme) serves the
+normalized `data/site/` layer at http://127.0.0.1:8765. Localhost only:
+paid content stays copyrighted, so the reader is never exposed to a network.
 </details>
 
 <details>

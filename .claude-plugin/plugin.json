@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "site-harvester",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Authenticated website content harvester: recon an SPA's hidden API, harvest OAuth tokens via Playwright, then collect all content human-paced, resumable, cron-scheduled",
   "author": { "name": "epicsagas", "url": "https://github.com/epicsagas" },
   "homepage": "https://github.com/epicsagas/site-harvester",
