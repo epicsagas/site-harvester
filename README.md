@@ -142,12 +142,7 @@ The plugin only accesses content your own paid account can access, at human spee
 
 ## Disclaimer
 
-This plugin is provided for personal archival of content you are legitimately
-subscribed to. Modifying the code, bypassing its built-in guardrails (terms
-check, pacing, block handling, private-repo enforcement), using it in
-violation of a site's terms or applicable law, or republishing/redistributing
-harvested content — all such use is at your own risk, and full responsibility
-lies with the user. The authors accept no liability for misuse.
+This plugin is provided for personal archival of content you are legitimately subscribed to. Modifying the code, bypassing its built-in guardrails (terms check, pacing, block handling, private-repo enforcement), using it in violation of a site's terms or applicable law, or republishing/redistributing harvested content — all such use is at your own risk, and full responsibility lies with the user. The authors accept no liability for misuse.
 
 ## Contributing
 
