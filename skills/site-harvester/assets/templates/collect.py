@@ -5,7 +5,8 @@ Resumable (state file updated per item), flock-guarded, window-guarded.
 Raw API JSON is the source of truth under data/; markdown notes are derived.
 
 Usage:
-  python3 collect.py [--limit N] [--pace MIN MAX] [--rebuild-notes] [--commit]
+  python3 collect.py [--limit N] [--pace MIN MAX] [--rebuild-notes]
+                     [--rebuild-site] [--commit]
 """
 import argparse
 import fcntl
@@ -31,6 +32,7 @@ SITE = {
     "origin": "https://example.com",
     "window_days": 14,
     "collection_name": "site",   # used in commits/notes
+    "site_title": "",            # local-reader masthead (default: collection_name)
     "tos_ok": False,             # flip to True only after the Phase 1 terms check
 
     # ---- api mode ----
@@ -123,6 +125,28 @@ def rss_content_html(entry) -> str:
         if c.get("value"):
             return c["value"]
     return entry.get("summary") or entry.get("description") or ""
+
+# ---- local-site hooks (optional; fill to emit the data/site/ reader layer) --
+
+def norm_article(detail_json) -> dict | None:
+    """One normalized article for the local reader (SKILL.md Phase 6b), or
+    None to skip the site layer entirely. Required: id, title, body_html.
+    Optional: date (ISO 8601), series_id, vol, is_free, tags [str],
+    keywords [str], authors [{id, name}], likes. assets_dir is filled in by
+    the harness. Body <img> tags are matched positionally, in document order,
+    to the img-* files the harness downloads into assets_dir."""
+    return None
+
+def norm_series(detail_json) -> dict | None:
+    """Series metadata, merged across its articles: {id, title, description?,
+    reader_note?, episodes?: [{id, vol?, date?, title?}]}. Episodes the site
+    lists but that are not collected yet may be included — `collected` flags
+    are computed by the harness."""
+    return None
+
+def norm_authors(detail_json) -> list[dict]:
+    """[{id, name, title?, bio?}] — merged across articles."""
+    return []
 # ============================== end SITE adapter ===========================
 
 SCRAPER_DIR = Path(__file__).resolve().parent
@@ -131,6 +155,8 @@ DATA_DIR = PROJECT_DIR / "data"
 RAW_DIR = DATA_DIR / "articles"
 NOTES_DIR = PROJECT_DIR / "notes"
 ATTACH_DIR = PROJECT_DIR / "attachments"
+SITE_DIR = DATA_DIR / "site"        # derived reader layer (gitignored, regenerable)
+SITE_ARTICLES = SITE_DIR / "articles"
 STATE_FILE = SCRAPER_DIR / "state.json"
 INDEX_FILE = DATA_DIR / "index.json"
 TOKEN_FILE = SCRAPER_DIR / "token.json"
@@ -515,6 +541,81 @@ def rebuild_notes() -> None:
     log.info("rebuild done: %d notes", n)
 
 
+# ---------------------------------------------------------------- site layer
+
+
+def _merge_series(store: dict, sid: str, s: dict | None, art: dict) -> None:
+    """Merge hook-provided series info + the article itself as an episode."""
+    cur = store.setdefault(sid, {"episodes": {}})
+    if s:
+        for k in ("title", "description", "reader_note"):
+            if s.get(k):
+                cur[k] = s[k]
+        for e in s.get("episodes") or []:
+            if not e or e.get("id") is None:
+                continue
+            ep = cur["episodes"].setdefault(str(e["id"]), {"id": str(e["id"])})
+            for k in ("vol", "date", "title"):
+                if e.get(k) is not None:
+                    ep[k] = e[k]
+    ep = cur["episodes"].setdefault(art["id"], {"id": art["id"]})
+    for k in ("vol", "date", "title"):
+        if art.get(k) is not None:
+            ep[k] = art[k]
+
+
+def rebuild_site() -> int:
+    """Regenerate data/site/ (index.json + normalized articles) from raw
+    data/, no refetching. Opt-in: a no-op with one INFO line until
+    norm_article is filled."""
+    raws = sorted(RAW_DIR.glob("*.json"))
+    if not raws or norm_article(json.loads(raws[0].read_text(encoding="utf-8"))) is None:
+        log.info("norm_article not filled — local-site layer skipped "
+                 "(opt-in, see SKILL.md Phase 6b)")
+        return 0
+    arts, series, authors = [], {}, {}
+    for f in raws:
+        detail = json.loads(f.read_text(encoding="utf-8"))
+        art = norm_article(detail)
+        if art is None:
+            continue
+        art["id"] = str(art["id"])   # site layer ids are strings everywhere
+        if art.get("series_id") is not None:
+            art["series_id"] = str(art["series_id"])
+        for au in art.get("authors") or []:
+            if au.get("id") is not None:
+                au["id"] = str(au["id"])
+        adir = ATTACH_DIR / sanitize_filename(art["id"])
+        if not art.get("assets_dir") and adir.is_dir():
+            art["assets_dir"] = str(adir.relative_to(PROJECT_DIR))
+        SITE_ARTICLES.mkdir(parents=True, exist_ok=True)
+        save_json(SITE_ARTICLES / f"{sanitize_filename(art['id'])}.json", art)
+        if art.get("series_id") is not None:
+            _merge_series(series, art["series_id"], norm_series(detail), art)
+        for au in norm_authors(detail) or []:
+            if not au or au.get("id") is None:
+                continue
+            a = authors.setdefault(str(au["id"]), {"name": au.get("name")})
+            for k in ("name", "title", "bio"):
+                if au.get(k):
+                    a[k] = au[k]
+            if art["id"] not in a.setdefault("article_ids", []):
+                a["article_ids"].append(art["id"])
+        arts.append({k: v for k, v in art.items() if k != "body_html"})
+    collected = {a["id"] for a in arts}
+    for s in series.values():
+        for e in s["episodes"].values():
+            e["collected"] = e["id"] in collected
+        s["episodes"] = sorted(s["episodes"].values(),
+                               key=lambda e: (e.get("vol") or 0, e.get("date") or ""))
+    save_json(SITE_DIR / "index.json", {
+        "site_title": SITE.get("site_title") or SITE["collection_name"],
+        "articles": arts, "series": series, "authors": authors})
+    log.info("site layer rebuilt: %d articles, %d series, %d authors",
+             len(arts), len(series), len(authors))
+    return len(arts)
+
+
 def git_commit(count: int) -> None:
     # guard: never commit harvested content to a public repo
     remote = subprocess.run(["git", "config", "--get", "remote.origin.url"],
@@ -547,6 +648,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0)
     ap.add_argument("--pace", type=float, nargs=2, default=(30, 120), metavar=("MIN", "MAX"))
     ap.add_argument("--rebuild-notes", action="store_true")
+    ap.add_argument("--rebuild-site", action="store_true",
+                    help="regenerate the data/site/ reader layer from raw data/ (no fetching)")
     ap.add_argument("--commit", action="store_true", help="git commit progress (every 50 items + end)")
     args = ap.parse_args()
 
@@ -554,7 +657,7 @@ def main() -> int:
                         handlers=[logging.FileHandler(SCRAPER_DIR / "collect.log", encoding="utf-8"),
                                   logging.StreamHandler()])
 
-    if not SITE.get("tos_ok") and not args.rebuild_notes:
+    if not SITE.get("tos_ok") and not (args.rebuild_notes or args.rebuild_site):
         log.error("tos_ok is False — run the Phase 1 terms-of-service check first (see SKILL.md)")
         return 1
     if args.pace[0] < 5:
@@ -568,8 +671,11 @@ def main() -> int:
             log.error("another collect.py is running — exiting")
             return 0
 
-    if args.rebuild_notes:
-        rebuild_notes()
+    if args.rebuild_notes or args.rebuild_site:
+        if args.rebuild_notes:
+            rebuild_notes()
+        if args.rebuild_site:
+            rebuild_site()
         return 0
 
     state = load_json(STATE_FILE, {"window_start": None, "collected": {}})
@@ -642,6 +748,7 @@ def main() -> int:
     finally:
         if RENDERER:
             RENDERER.close()
+    rebuild_site()  # refresh the reader layer even on no-new-item runs
     log.info("run complete: %d new items", done)
     return 0
 

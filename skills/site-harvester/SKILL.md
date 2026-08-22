@@ -155,11 +155,44 @@ date in the repo's PROGRESS; remove the cron line after.
 
 ### Phase 6 — Derived layers (optional)
 
-- **Notes/KMS**: convert raw JSON → markdown notes with wikilinks
-  (item ↔ series ↔ author). See worked example in the vault project.
-- **Local site**: `data/` + `attachments/` is a self-contained static-site
-  source. Body HTML is usually render-ready. Keep it localhost-only for paid
-  content.
+**6a — Notes/KMS**: convert raw JSON → markdown notes with wikilinks
+(item ↔ series ↔ author). See worked example in the vault project.
+
+**6b — Local reader site**: serve the archive as a blog-like web app at
+localhost. Zero per-site code: the collector emits a normalized
+`data/site/` layer and the generic `site/` template reads only that.
+
+1. Copy `assets/templates/site/` from this skill into the target repo root
+   (`target-repo/site/`). Python stdlib + vanilla JS — nothing to install.
+2. Fill the local-site hooks in `collect.py` (`norm_article`, `norm_series`,
+   `norm_authors`) mapping the site's raw JSON to the normalized article
+   shape documented on the hooks. Leave them unfilled to skip the site layer.
+3. Emit the layer:
+
+   ```bash
+   python3 scraper/collect.py --rebuild-site   # regenerate from raw data/, no fetching
+   ```
+
+   The layer is also refreshed automatically at the end of every sweep.
+   `data/site/` is gitignored — it is derived and regenerable.
+4. Serve and verify in a browser:
+
+   ```bash
+   python3 site/serve.py                 # http://127.0.0.1:8765 (--port, --root)
+   ```
+
+Normalized shape (all fields optional except id/title; ids are strings):
+articles `{id, title, date, body_html, series_id, vol, is_free, tags[],
+keywords[], authors[{id,name}], likes, assets_dir}` — `assets_dir` is
+repo-root-relative and auto-filled from `attachments/{id}/`; body `<img>`
+tags are rewritten in document order onto its `img-*` files.
+`index.json` holds `{site_title, articles[] (no bodies), series{id: {title,
+description, reader_note, episodes[{id, vol, date, title, collected}]}},
+authors{id: {name, title, bio, article_ids[]}}}`.
+
+**Security invariant**: the reader binds 127.0.0.1 only. Paid content is
+copyrighted — never expose it on a network interface, never make 0.0.0.0
+the binding, never host the generated site publicly.
 
 ## Failure modes
 

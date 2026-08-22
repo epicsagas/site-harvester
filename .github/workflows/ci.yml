@@ -20,6 +20,7 @@ jobs:
           files = [
               "skills/site-harvester/assets/templates/collect.py",
               "skills/site-harvester/assets/templates/login.py",
+              "skills/site-harvester/assets/templates/site/serve.py",
           ]
           for f in files:
               ast.parse(open(f, encoding="utf-8").read())
@@ -38,6 +39,8 @@ jobs:
           fi
           grep -q 'tos_ok' skills/site-harvester/assets/templates/collect.py
           grep -q 'isPrivate' skills/site-harvester/assets/templates/collect.py
+          # reader must stay localhost-only (paid content)
+          grep -q '"127.0.0.1"' skills/site-harvester/assets/templates/site/serve.py
       - name: Manifests parse
         run: |
           python3 -c "import json; [json.load(open(f)) for f in ['.claude-plugin/plugin.json','plugin.json','.codex-plugin/plugin.json']]"
