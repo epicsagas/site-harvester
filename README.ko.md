@@ -2,7 +2,9 @@
 
 > 이 문서는 [README.md](README.md)의 한국어 번역입니다. 원문(영어)이 항상 최신 상태이며, 내용이 다를 수 있습니다.
 
-# site-harvester
+<img width="100%" src="assets/feature.png" alt="Site Harvester Features" />
+
+<center><h1>site-harvester</h1></center>
 
 > 로그인해야 볼 수 있는 콘텐츠, 전부 긁어서 로컬에 쌓아두기 — 정중한 속도로, 끊어도 이어서, 예약까지 걸어서.
 
@@ -32,8 +34,6 @@ hermes plugins install https://github.com/epicsagas/site-harvester --enable
 hermes config set plugins.scan_on_install true
 hermes gateway restart
 ```
-
-agy / hermes는 [AGENTS.md](AGENTS.md)의 매니페스트 경로를 참고하세요.
 
 ## 시작하기
 

@@ -1,13 +1,15 @@
 **[English](README.md)** | [한국어](README.ko.md)
 
+<img width="100%" src="assets/feature.png" alt="Site Harvester Features" />
+
+<center><h1>site-harvester</h1></center>
+
 <p align="center">
   <a href="https://github.com/epicsagas/site-harvester/stargazers"><img alt="Stars" src="https://img.shields.io/github/stars/epicsagas/site-harvester?style=for-the-badge&labelColor=0d1117&color=ffd700&logo=github&logoColor=white" /></a>
   <a href="https://github.com/epicsagas/site-harvester/network/members"><img alt="Forks" src="https://img.shields.io/github/forks/epicsagas/site-harvester?style=for-the-badge&labelColor=0d1117&color=2ecc71&logo=github&logoColor=white" /></a>
   <a href="https://github.com/epicsagas/site-harvester/issues"><img alt="Issues" src="https://img.shields.io/github/issues/epicsagas/site-harvester?style=for-the-badge&labelColor=0d1117&color=ff6b6b&logo=github&logoColor=white" /></a>
   <a href="https://github.com/epicsagas/site-harvester/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/epicsagas/site-harvester?style=for-the-badge&labelColor=0d1117&color=58a6ff&logo=git&logoColor=white" /></a>
 </p>
-
-# site-harvester
 
 > Collect every article behind a login wall — politely, resumably, on schedule.
 
