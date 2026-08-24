@@ -146,7 +146,8 @@ The plugin only accesses content your own paid account can access, at human spee
 
 Your content may be harvested by subscribers using tools like this one. We maintain a
 separate guide for site operators — defense options, and why a "moat over blocking"
-strategy often wins: **[docs/SITE-OWNERS-GUIDE.ko.md](docs/SITE-OWNERS-GUIDE.ko.md)** (Korean).
+strategy often wins: **[docs/SITE-OWNERS-GUIDE.md](docs/SITE-OWNERS-GUIDE.md)**
+(Korean: [docs/SITE-OWNERS-GUIDE.ko.md](docs/SITE-OWNERS-GUIDE.ko.md)).
 
 ## Disclaimer
 
