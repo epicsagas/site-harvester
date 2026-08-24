@@ -142,6 +142,12 @@ smoke test use `--limit 3`, which paces at 3–8s.
 The plugin only accesses content your own paid account can access, at human speed, for personal archival. It contains no CAPTCHA solving, anti-bot evasion, IP rotation, or paywall bypass — by design, and the templates make weakening the pacing a deliberate, visible act. Check the site's terms and your local law before collecting (rules differ by country), keep use personal and non-commercial, and never republish collected content: paid content stays copyrighted, sites stay localhost-only.
 </details>
 
+## For Site Owners
+
+Your content may be harvested by subscribers using tools like this one. We maintain a
+separate guide for site operators — defense options, and why a "moat over blocking"
+strategy often wins: **[docs/SITE-OWNERS-GUIDE.ko.md](docs/SITE-OWNERS-GUIDE.ko.md)** (Korean).
+
 ## Disclaimer
 
 This plugin is provided for personal archival of content you are legitimately subscribed to. Modifying the code, bypassing its built-in guardrails (terms check, pacing, block handling, private-repo enforcement), using it in violation of a site's terms or applicable law, or republishing/redistributing harvested content — all such use is at your own risk, and full responsibility lies with the user. The authors accept no liability for misuse.
