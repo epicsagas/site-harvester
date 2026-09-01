@@ -1,12 +1,12 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "epicsagas",
+  "name": "site-harvester",
   "owner": {
     "name": "epicsagas",
     "url": "https://github.com/epicsagas"
   },
   "metadata": {
-    "description": "Handcrafted plugins for serious AI-assisted work."
+    "description": "Standalone marketplace for the site-harvester plugin. Install directly from this repository without the epicsagas hub."
   },
   "plugins": [
     {

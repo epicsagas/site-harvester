@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Local reader</title>
+<link rel="icon" href="data:,">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header class="masthead">
+  <a class="wordmark" href="#/"><span id="wordmark">Archive</span></a>
+  <nav>
+    <a href="#/">Home</a>
+    <a href="#/series">Series</a>
+    <a href="#/authors">Authors</a>
+    <a href="#/tags">Tags</a>
+    <a href="#/archive">Archive</a>
+  </nav>
+  <div class="masthead-right">
+    <label class="hide-read"><input type="checkbox" id="hideRead"> Hide read</label>
+    <button id="themeBtn" class="theme-btn" title="Toggle dark theme" aria-label="Toggle dark theme">☾</button>
+  </div>
+</header>
+<main id="app" class="app"></main>
+<div id="sentinel" class="sentinel"></div>
+<script src="/app.js"></script>
+</body>
+</html>

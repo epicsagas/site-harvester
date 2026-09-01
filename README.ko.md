@@ -16,11 +16,11 @@ Claude Code, Codex, Antigravity, Hermes Agent 어디서든 동작합니다. 로�
 
 ```bash
 # Claude Code
-claude plugin marketplace add epicsagas/plugins
-claude plugin install site-harvester@epicsagas
+claude plugin marketplace add epicsagas/site-harvester
+claude plugin install site-harvester@site-harvester
 
 # Codex
-codex plugin marketplace add epicsagas/plugins
+codex plugin marketplace add epicsagas/site-harvester
 codex plugin add site-harvester
 
 # Antigravity

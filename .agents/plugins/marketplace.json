@@ -1,0 +1,21 @@
+{
+  "name": "site-harvester",
+  "interface": {
+    "displayName": "site-harvester plugin"
+  },
+  "plugins": [
+    {
+      "name": "site-harvester",
+      "source": {
+        "source": "local",
+        "path": "./"
+      },
+      "pluginManifest": "./.codex-plugin/plugin.json",
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

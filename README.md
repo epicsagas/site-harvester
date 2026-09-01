@@ -21,12 +21,12 @@ Runs on Claude Code, Codex, Antigravity, and Hermes Agent. Built and battle-test
 
 ```bash
 # Claude Code
-claude plugin marketplace add epicsagas/plugins
-claude plugin install site-harvester@epicsagas
+claude plugin marketplace add epicsagas/site-harvester
+claude plugin install site-harvester@site-harvester
 
 # Codex
-codex plugin marketplace add epicsagas/plugins
-codex plugin add site-harvester
+codex plugin marketplace add epicsagas/site-harvester
+codex plugin add site-harvester@site-harvester
 
 # Antigravity
 agy plugin install https://github.com/epicsagas/site-harvester
