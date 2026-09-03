@@ -10,8 +10,9 @@
       "description": "Authenticated website content harvester: recon an SPA's hidden API, harvest OAuth tokens via Playwright, then collect all content human-paced, resumable, cron-scheduled",
       "category": "development",
       "source": {
-        "type": "local",
-        "path": "."
+        "source": "url",
+        "url": "https://github.com/epicsagas/site-harvester.git",
+        "sha": "5e04d7b82f130566544cd6caf32fcb3b0d717ecd"
       },
       "homepage": "https://github.com/epicsagas/site-harvester",
       "keywords": [
