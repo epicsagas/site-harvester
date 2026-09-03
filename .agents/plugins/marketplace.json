@@ -8,7 +8,7 @@
       "name": "site-harvester",
       "source": {
         "source": "local",
-        "path": "./"
+        "path": "./plugins/site-harvester"
       },
       "pluginManifest": "./.codex-plugin/plugin.json",
       "policy": {
