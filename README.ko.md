@@ -10,7 +10,7 @@
 
 많은 회원제 사이트는 React 같은 SPA 프레임워크 뒤에 JSON API를 두고 있습니다. 화면엔 글이 보이지만 실제 데이터는 뒤쪽 JSON API로 오가죠. 이 플러그인은 그 숨은 API를 찾아내고, 진짜 브라우저로 한 번만 로그인해서 토큰을 얻은 다음, 그다음부턴 평범한 API 호출로 모든 콘텐츠를 가져옵니다. 사람이 읽는 속도로 천천히, 중간에 꺼져도 딱 그 자리부터 다시, 그리고 새 글은 cron이 알아서 받아옵니다. API가 없는 사이트도 됩니다 — RSS 피드(`rss` 모드)나 로그인 브라우저 프로필로 렌더링한 페이지(`dom` 모드)로 수집합니다.
 
-Claude Code, Codex, Antigravity, Hermes Agent 어디서든 동작합니다. 로그인이 필요한 대규모 SPA 사이트에서 검증했습니다 — 전체 아카이브 초기 수집은 며칠에 걸쳐, OAuth 로그인, 이후 예약된 증분 수집까지.
+Claude Code, Codex, Antigravity, Grok Build, Hermes Agent 어디서든 동작합니다. 로그인이 필요한 대규모 SPA 사이트에서 검증했습니다 — 전체 아카이브 초기 수집은 며칠에 걸쳐, OAuth 로그인, 이후 예약된 증분 수집까지.
 
 ## 설치
 
@@ -25,6 +25,9 @@ codex plugin add site-harvester
 
 # Antigravity
 agy plugin install https://github.com/epicsagas/site-harvester
+
+# Grok Build (xAI)
+grok plugin install epicsagas/site-harvester --trust
 
 # Hermes Agent — 설치 스캐너가 이 플러그인의 AGENTS.md 가이드를 CRITICAL
 # "persistence"로 오탐합니다(에이전트 설정 파일 언급 전부를 잡는 휴리스틱).
