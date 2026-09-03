@@ -1,0 +1,26 @@
+{
+  "name": "site-harvester",
+  "description": "Standalone marketplace for the site-harvester plugin. Install from this repository.",
+  "owner": {
+    "name": "epicsagas"
+  },
+  "plugins": [
+    {
+      "name": "site-harvester",
+      "description": "Authenticated website content harvester: recon an SPA's hidden API, harvest OAuth tokens via Playwright, then collect all content human-paced, resumable, cron-scheduled",
+      "category": "development",
+      "source": {
+        "type": "local",
+        "path": "."
+      },
+      "homepage": "https://github.com/epicsagas/site-harvester",
+      "keywords": [
+        "scraping",
+        "harvester",
+        "oauth",
+        "playwright",
+        "site-archive"
+      ]
+    }
+  ]
+}
