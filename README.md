@@ -19,6 +19,14 @@ Runs on Claude Code, Codex, Antigravity, and Hermes Agent. Built and battle-test
 
 ## Install
 
+### Grok Build (xAI)
+
+```bash
+grok plugin install epicsagas/site-harvester --trust
+```
+
+Grok reads skills from `skills/` at the plugin root. No extra configuration needed.
+
 ```bash
 # Claude Code
 claude plugin marketplace add epicsagas/site-harvester
