@@ -12,7 +12,7 @@
       "source": {
         "source": "url",
         "url": "https://github.com/epicsagas/site-harvester.git",
-        "sha": "5e04d7b82f130566544cd6caf32fcb3b0d717ecd"
+        "sha": "be3f7212144eb03bfa3f198761c136c541a6db49"
       },
       "homepage": "https://github.com/epicsagas/site-harvester",
       "keywords": [
