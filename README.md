@@ -32,7 +32,8 @@ codex plugin add site-harvester@site-harvester
 agy plugin install https://github.com/epicsagas/site-harvester
 
 # Grok Build (xAI)
-grok plugin install epicsagas/site-harvester --trust
+grok plugin marketplace add epicsagas/site-harvester
+grok plugin install site-harvester@site-harvester --trust
 
 # Hermes Agent — the install scanner flags this plugin's AGENTS.md guide as a
 # CRITICAL "persistence" finding (heuristic: any agent-config file reference),

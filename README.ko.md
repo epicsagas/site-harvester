@@ -27,7 +27,8 @@ codex plugin add site-harvester
 agy plugin install https://github.com/epicsagas/site-harvester
 
 # Grok Build (xAI)
-grok plugin install epicsagas/site-harvester --trust
+grok plugin marketplace add epicsagas/site-harvester
+grok plugin install site-harvester@site-harvester --trust
 
 # Hermes Agent — 설치 스캐너가 이 플러그인의 AGENTS.md 가이드를 CRITICAL
 # "persistence"로 오탐합니다(에이전트 설정 파일 언급 전부를 잡는 휴리스틱).
